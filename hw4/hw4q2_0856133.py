@@ -8,7 +8,7 @@ def loadFile():
     test_image, test_label = mlxtend.data.loadlocal_mnist(
         images_path="./t10k-images-idx3-ubyte",
         labels_path="./t10k-labels-idx1-ubyte")
-    return train_image[:100, ], train_label[:100], test_image[:100, ], test_label[:100]
+    return train_image[:10000, ], train_label[:10000], test_image[:100, ], test_label[:100]
 
 def binning(image):
     binning_image = np.zeros((len(image), 28, 28))
@@ -40,29 +40,57 @@ test_image = binning(test_image)
 full_train_image = train_image
 
 # parameter:
-    # lambd[10] : lambd0, lambd1, ..., lambd8, 1-lambd0-lambd1-...-lambd8
-    # , w[10][60000]
+    # w[10][60000]
+    # , lambd[10] : lambd0, lambd1, ..., lambd8, 1-lambd0-lambd1-...-lambd8
     # , P[10][28][28]
-lambd = np.ones(10)
 w = np.ones((10, len(train_image)))
+lambd = np.ones(10)
 P = np.ones((10, 28, 28))
+
+# for i in range(10):
+#     for j in range(len(train_image)):
+#         w[i][j] = 0.1
+#         # if i == 9:
+#         #     w[9][j] = 1-w[0][j]-w[1][j]-w[2][j]-w[3][j]-w[4][j]-w[5][j]-w[6][j]-w[7][j]-w[8][j]
+#         print(w[i][j])
+for i in range(len(train_image)):
+    w[0][i] = 5923/60000
+    w[1][i] = 6742/60000
+    w[2][i] = 5958/60000
+    w[3][i] = 6131/60000
+    w[4][i] = 5842/60000
+    w[5][i] = 5421/60000
+    w[6][i] = 5918/60000
+    w[7][i] = 6265/60000
+    w[8][i] = 5851/60000
+    w[9][i] = 5949/60000
+print(w)
+
+# for i in range(10):
+#     lambd[i] = 0.1
+#     print(lambd[i], " ", end='')
+# print("\n")
+# lambd[9] = 1-lambd[0]-lambd[1]-lambd[2]-lambd[3]-lambd[4]-lambd[5]-lambd[6]-lambd[7]-lambd[8]
+# print(lambd[9])
+lambd[0] = 5923
+lambd[1] = 6742
+lambd[2] = 5958
+lambd[3] = 6131
+lambd[4] = 5842
+lambd[5] = 5421
+lambd[6] = 5918
+lambd[7] = 6265
+lambd[8] = 5851
+lambd[9] = 5949
 for i in range(10):
-    lambd[i] = 0.1
-    print(lambd[i], " ", end='')
-print("\n")
-#lambd[9] = 1-lambd[0]-lambd[1]-lambd[2]-lambd[3]-lambd[4]-lambd[5]-lambd[6]-lambd[7]-lambd[8]
-#print(lambd[9])
-for i in range(10):
-    for j in range(len(train_image)):
-        w[i][j] = 0.1
-        # if i == 9:
-        #     w[9][j] = 1-w[0][j]-w[1][j]-w[2][j]-w[3][j]-w[4][j]-w[5][j]-w[6][j]-w[7][j]-w[8][j]
-        print(w[i][j])
+    lambd[i] /= 60000
+    print("lambd[%d] :" % i, lambd[i])
+
 
 for i in range(10):
     for j in range(28):
         for k in range(28):
-            P[i][j][k] = 0.3
+            P[i][j][k] = 0.05
 
 print("=============E step===============")
 # E-step
@@ -126,12 +154,13 @@ for category in range(10):
             print(P[category][row][col], " ", end='')
         print("\n")
 
+print("==================imagination picture======================")
 # show result
 for category in range(10):
     print("class %d:" % category)
     for i in range(28):
         for j in range(28):
-            if P[category][i][j] >= 0.49:
+            if P[category][i][j] >= 0.5:
                 print(1, end='')
             else:
                 print(0, end='')
