@@ -1,6 +1,6 @@
 import numpy as np
 import pandas
-
+import matplotlib.pyplot as plt
 
 def ugdg(mean, var):
     U1 = np.random.uniform(0, 1, 1)
@@ -130,6 +130,49 @@ def gradient_ascent(x1, x2, label, theta):
         print("my theta: ", theta)
         print("log_likelihood: ", log_likelihood(x1, x2, label, theta))
     pred_label = predict_label(x1, x2, label, theta)
+    TP, FN, FP, TN = 0, 0, 0, 0
+    for i in range(len(label)):
+        if label[i] == 1 and pred_label[i] == 1:
+            TP += 1
+        elif label[i] == 1 and pred_label[i] == 0:
+            FN += 1
+        elif label[i] == 0 and pred_label[i] == 1:
+            FP += 1
+        elif label[i] == 0 and pred_label[i] == 0:
+            TN += 1
+    print("                 Predict D1, Predict D2")
+    print("Ground truth D1      %d          %d" % (TP, FN))
+    print("Ground truth D2      %d          %d" % (FP, TN))
+    print("Sensitivity (Successfully predict cluster 1): %f" % (TP / (TP + FN)))
+    print("Specificity (Successfully predict cluster 2): %f" % (TN / (TN + FP)))
+    # VISUALIZATION
+    ################### fig 131
+    plt.figure(figsize=(6, 6))
+    plt.title("hw4 gradient ascent")
+    plt.subplot(131)
+    plt.title("ground truth")
+    x1 = np.copy(x1)
+    x2 = np.copy(x2)
+    plt.plot(x1[:int(len(x1)/2)], x2[:int(len(x2)/2)], '.')
+    plt.plot(x1[int(len(x1)/2):], x2[int(len(x2)/2):], '.')
+    #################### fig 132
+    plt.subplot(132)
+    plt.title("gradient ascent")
+    D1_x1 = np.empty(0)
+    D1_x2 = np.empty(0)
+    D2_x1 = np.empty(0)
+    D2_x2 = np.empty(0)
+    for i in range(len(pred_label)):
+        if pred_label[i] == 1:
+            D1_x1 = np.append(D1_x1, x1[i])
+            D1_x2 = np.append(D1_x2, x2[i])
+        elif pred_label[i] == 0:
+            D2_x1 = np.append(D2_x1, x1[i])
+            D2_x2 = np.append(D2_x2, x2[i])
+    #print(D1_x1, D1_x2, D2_x1, D2_x2)
+    plt.plot(D1_x1, D1_x2, '.')
+    plt.plot(D2_x1, D2_x2, '.')
+    plt.show()
     print("====================ABOVE: GRADIENT ASCENT====================")
 
 
@@ -190,7 +233,7 @@ def logistic_regression():
     # log_likelihood
     l = log_likelihood(df_data['x1'], df_data['x2'], df_data['label'], theta)
     print("log_likelihood: ", l)
-    newton_method(df_data['x1'], df_data['x2'], df_data['label'], theta)
+    #newton_method(df_data['x1'], df_data['x2'], df_data['label'], theta)
 
 if __name__ == '__main__':
     logistic_regression()
