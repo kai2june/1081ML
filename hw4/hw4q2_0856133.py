@@ -98,7 +98,9 @@ for i in range(10):
         for k in range(28):
             P[i][j][k] = 0.05
 
+converge_iteration = 0
 for epoch in range(20):
+    converge_iteration += 1
     print("===============================epoch[%d]==================================" % epoch)
     #train_image = full_train_image[300*(epoch):300*(epoch+1), :, :]
     # for i in range(len(train_image)):
@@ -182,6 +184,9 @@ for epoch in range(20):
 #                 print(P[i][j][k], " ", end='')
 #             print("\n")
 
+    if epoch == 0:
+        tmp = np.copy(P)
+    difference = 0
     print("==================imagination picture======================")
     # show result
     for category in range(10):
@@ -190,9 +195,44 @@ for epoch in range(20):
             for j in range(28):
                 if P[category][i][j] >= 0.5:
                     print(1, end='')
+                    if tmp[category][i][j] < 0.5:
+                        difference += 1
                 else:
                     print(0, end='')
+                    if tmp[category][i][j] >= 0.5:
+                        difference += 1
             print("\n")
+    tmp = np.copy(P)
+    print("No. of Iteration: %d, Difference: %f" % (epoch, difference) )
+    if difference <= 10 and epoch >=15 :
+        break
 
+################confusion matrix###############
+count = np.zeros(10)
+for i in range(len(train_label)):
+    count[train_label[i]] += 1
+
+true_positive = 0
+for i in range(10):
+    TP, FN, FP, TN = 0, 0, 0, 0
+    for j in range(len(train_image)):
+        if train_label[j] == i and w[i][j] >= 0.5:
+            TP += 1
+            true_positive += 1
+        elif train_label[j] == i and w[i][j] < 0.5:
+            FN += 1
+        elif train_label[j] != i and w[i][j] >= 0.5:
+            FP += 1
+        elif train_label[j] != i and w[i][j] < 0.5:
+            TN += 1
+    print("Confusion Matrix %d:" % i)
+    print("                             Predict number %d, Predict number %d" %(i, i))
+    print("Ground truth number %d:          %d                  %d" % (i, TP, FN))
+    print("Ground truth number not %d:      %d                  %d" % (i, FP, TN))
+    print("Sensitivity (Successfully predict number %d): %f" % (i, TP/(TP + FN)))
+    print("Specificity (Successfully predict not number %d): %f" % (i, TN/(TN + FP)))
+    print("==============================================================================")
+print("Total iteration to converge: %d" % converge_iteration)
+print("Total error rate: %f" % (1 - true_positive/len(train_image)))
 # if __name__ == "__main__":
 #     EM()
