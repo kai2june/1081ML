@@ -50,36 +50,43 @@ def gradient(x1, x2, label, theta):
 
 
 def hessian(x1, x2, label, theta):
-    sigmoid_probs = np.zeros(len(x1))
-    A = np.zeros((len(x1), len(theta)))
-    D = np.zeros((len(x1), len(x1)))
-    for i in range(len(x1)):
-        sigmoid_probs[i] = sigmoid(x1[i], x2[i], theta)
-        A[i][0] = 1
-        A[i][1] = x1[i]
-        A[i][2] = x2[i]
-        D[i][i] = sigmoid_probs[i]*(1 - sigmoid_probs[i])
-    AT = np.transpose(A)
-    return np.dot(np.dot(AT, D), A)
     # sigmoid_probs = np.zeros(len(x1))
-    # hess = np.zeros((3, 3))
+    # A = np.zeros((len(x1), len(theta)))
+    # D = np.zeros((len(x1), len(x1)))
     # for i in range(len(x1)):
     #     sigmoid_probs[i] = sigmoid(x1[i], x2[i], theta)
-    #     hess[0][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*1
-    #     hess[0][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]
-    #     hess[0][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]
-    #     hess[1][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]
-    #     hess[1][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x1[i]
-    #     hess[1][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x2[i]
-    #     hess[2][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]
-    #     hess[2][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x2[i]
-    #     hess[2][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]*x2[i]
-    # return hess
+    #     A[i][0] = 1
+    #     A[i][1] = x1[i]
+    #     A[i][2] = x2[i]
+    #     D[i][i] = sigmoid_probs[i]*(1 - sigmoid_probs[i])
+    # AT = np.transpose(A)
+    # return np.dot(np.dot(AT, D), A)
+    sigmoid_probs = np.zeros(len(x1))
+    hess = np.zeros((3, 3))
+    error = 0
+    for i in range(len(x1)):
+        sigmoid_probs[i] = sigmoid(x1[i], x2[i], theta)
+        A = np.array([1, x1[i], x2[i]])
+        A = A.reshape((3,1))
+        hess += sigmoid_probs[i]*(1-sigmoid_probs[i])*np.dot(A, np.transpose(A))
+        error += (label[i] - sigmoid_probs[i])*A
+        # hess[0][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*1
+        # hess[0][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]
+        # hess[0][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]
+        # hess[1][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]
+        # hess[1][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x1[i]
+        # hess[1][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x2[i]
+        # hess[2][0] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]
+        # hess[2][1] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x1[i]*x2[i]
+        # hess[2][2] += -sigmoid_probs[i]*(1 - sigmoid_probs[i])*x2[i]*x2[i]
+    hess = - hess
+    #print("hess.shape", hess.shape)
+    return hess, error
 
 
 def newton_method(x1, x2, label, theta):
     print("====================BELOW: NEWTON's METHOD====================")
-    threshold = 0.01
+    threshold = 0.02
     new_theta = np.zeros(3)
     new_theta[0] = 100
     new_theta[1] = 100
@@ -88,27 +95,72 @@ def newton_method(x1, x2, label, theta):
     while judge >= threshold:
         # DERIVATIVES
         g = gradient(x1, x2, label, theta)
-        hess = hessian(x1, x2, label, theta)
-        print("hess: ", hess)
-        if np.linalg.matrix_rank(hess) != len(theta):
-            print("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSingular:")
+        hess, error = hessian(x1, x2, label, theta)
+        #print("hess: ", hess)
+        if np.linalg.det(hess) == 0:
+            #print("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSingular:")
             lr = 0.0001
             new_theta = theta + lr * g
         else:
-            print("Non-singular:")
-            print("g: ", g)
+            #print("Non-singular:")
+            #print("g: ", g)
             H_inv = np.linalg.inv(hess)
-            print("H_inv: ", H_inv)
+            #print("H_inv: ", H_inv)
             g = np.expand_dims(g, axis=1)
             delta = np.dot(H_inv, g)
             delta = np.squeeze(delta, axis=1)
-            print(H_inv.shape, g.shape, delta.shape)
-            new_theta = theta - delta
+            #print(H_inv.shape, g.shape, delta.shape)
+            lr = 0.01
+            new_theta = theta - lr*delta
         judge = np.abs((new_theta[0] - theta[0])) + np.abs((new_theta[1] - theta[1])) + np.abs((new_theta[2] - theta[2]))
         theta = new_theta
         print("my theta: ", theta)
-        print("log_likelihood: ", log_likelihood(x1, x2, label, theta))
+        #print("log_likelihood: ", log_likelihood(x1, x2, label, theta))
     pred_label = predict_label(x1, x2, label, theta)
+
+    TP, FN, FP, TN = 0, 0, 0, 0
+    for i in range(len(label)):
+        if label[i] == 1 and pred_label[i] == 1:
+            TP += 1
+        elif label[i] == 1 and pred_label[i] == 0:
+            FN += 1
+        elif label[i] == 0 and pred_label[i] == 1:
+            FP += 1
+        elif label[i] == 0 and pred_label[i] == 0:
+            TN += 1
+    print("                 Predict D1, Predict D2")
+    print("Ground truth D1      %d          %d" % (TP, FN))
+    print("Ground truth D2      %d          %d" % (FP, TN))
+    print("Sensitivity (Successfully predict cluster 1): %f" % (TP / (TP + FN)))
+    print("Specificity (Successfully predict cluster 2): %f" % (TN / (TN + FP)))
+    # VISUALIZATION
+    ################### fig 131
+    plt.figure(figsize=(6, 6))
+    plt.title("hw4 gradient ascent")
+    plt.subplot(131)
+    plt.title("ground truth")
+    x1 = np.copy(x1)
+    x2 = np.copy(x2)
+    plt.plot(x1[:int(len(x1)/2)], x2[:int(len(x2)/2)], '.')
+    plt.plot(x1[int(len(x1)/2):], x2[int(len(x2)/2):], '.')
+    #################### fig 132
+    plt.subplot(132)
+    plt.title("newton's method")
+    D1_x1 = np.empty(0)
+    D1_x2 = np.empty(0)
+    D2_x1 = np.empty(0)
+    D2_x2 = np.empty(0)
+    for i in range(len(pred_label)):
+        if pred_label[i] == 1:
+            D1_x1 = np.append(D1_x1, x1[i])
+            D1_x2 = np.append(D1_x2, x2[i])
+        elif pred_label[i] == 0:
+            D2_x1 = np.append(D2_x1, x1[i])
+            D2_x2 = np.append(D2_x2, x2[i])
+    #print(D1_x1, D1_x2, D2_x1, D2_x2)
+    plt.plot(D1_x1, D1_x2, '.')
+    plt.plot(D2_x1, D2_x2, '.')
+    plt.show()
     print("====================ABOVE: NEWTON's METHOD====================")
 
 
@@ -233,7 +285,7 @@ def logistic_regression():
     # log_likelihood
     l = log_likelihood(df_data['x1'], df_data['x2'], df_data['label'], theta)
     print("log_likelihood: ", l)
-    #newton_method(df_data['x1'], df_data['x2'], df_data['label'], theta)
+    newton_method(df_data['x1'], df_data['x2'], df_data['label'], theta)
 
 if __name__ == '__main__':
     logistic_regression()
