@@ -207,6 +207,17 @@ for epoch in range(20):
     if difference <= 10 and epoch >=15 :
         break
 
+rlt = np.array([3, 2, 8, 4, 9, 5, 7, 1, 6, 0])
+order = np.array([9, 7, 1, 0, 3, 5, 8, 6, 2, 4])
+for i in range(10):
+    print("labeled class %d:" % i)
+    for j in range(28):
+        for k in range(28):
+            if P[order[i]][j][k] >= 0.5:
+                print(1, end='')
+            else:
+                print(0, end='')
+        print("\n")
 ################confusion matrix###############
 count = np.zeros(10)
 for i in range(len(train_label)):
