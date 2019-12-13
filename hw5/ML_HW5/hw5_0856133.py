@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 
 def rational_quadratic_kernel(xa, xb):
-    variance = 1.7256
+    sigmaf = 1.7256
     alpha = 366.67
     l = 3.3
     numerator = np.abs(xa-xb)*np.abs(xa-xb)
     denominator = 2*alpha*l*l
-    return variance*np.power(1+numerator/denominator, -alpha)
+    return sigmaf*np.power(1+numerator/denominator, -alpha)
 
 def generate_x_star():
     x_star = np.random.uniform(-60, 60, 1)
@@ -64,6 +65,30 @@ def GPR():
     plt.plot(X_lin, Y_lin + 1.96*np.sqrt(var_y_star), 'green')
     plt.plot(X_lin, Y_lin - 1.96*np.sqrt(var_y_star), 'orange')
     plt.show()
+
+    # q1_2 #fun = lambda C, sigmaf, alpha, l: (0.5*np.log(C)) + (0.5*Y.T @ C.inv @ Y) + (len(Y)/2)*np.log(np.pi)
+    def C(xa, xb, sigmaf, alpha, l):
+        numerator = np.abs(xa - xb) * np.abs(xa - xb)
+        denominator = 2 * alpha * l * l
+        return sigmaf * np.power(1 + numerator / denominator, -alpha)
+
+    def fun(x, *args):
+        # for arg in args:
+        #     print("arg {}")
+        #print("args {}".format(args))
+        X, Y = args
+        print("\nX {}\nY {}".format(X, Y))
+        sigmaf, alpha, l = x
+        print("sigmaf {} alpha {} l {}".format(sigmaf, alpha, l))
+        K = np.zeros((len(X), len(X)))
+        for i in range(len(X)):
+            for j in range(len(X)):
+                K[i][j] = C(X[i], X[j], sigmaf, alpha, l)
+                if i == j:
+                    K[i][j] += 0.2
+        return (0.5*np.log(np.linalg.det(K))) + (0.5*Y.T @ np.linalg.inv(K) @ Y) + (0.5*len(Y)*np.log(np.pi))
+    res = minimize(fun, x0=[1, 1, 1], args=(X, Y))
+    print("res: {}".format(res.x))
 
 if __name__ == '__main__':
     GPR()
