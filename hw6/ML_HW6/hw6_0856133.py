@@ -22,20 +22,11 @@ def distance_on_kernel(img, cluster, cluster_count):
     distanceOnKernel = np.zeros((100,100, len(cluster_count)))
     gramMatrix = np.zeros(len(cluster_count))
     newCluster = np.zeros((100, 100))
+    W = np.zeros((100, 100, 100, 100))
+    D = np.zeros((100, 100))
     for i in range(100):
         for j in range(100):
             newCluster[i][j] = -1
-    # compute k right terms
-    # for i in range(100):
-    #     for j in range(100):
-    #         sx = [i, j]
-    #         cx = [img[i][j][0], img[i][j][1], img[i][j][2]]
-    #         for s in range(100):
-    #             for t in range(100):
-    #                 if cluster[i][j] == cluster[s][t]:
-    #                     sx_apostrophe = [s, t]
-    #                     cx_apostrophe = [img[s][t][0], img[s][t][1], img[s][t][2]]
-    #                     gramMatrix[cluster[i][j]] += user_defined_kernel(sx, sx_apostrophe, cx, cx_apostrophe)
 
     # apply Wei-chen Chiu's Unsupervised_Learning.pdf p.22 formula
     print("Computing formula...")
@@ -57,6 +48,14 @@ def distance_on_kernel(img, cluster, cluster_count):
                     cx_apostrophe = [img[s][t][0], img[s][t][1], img[s][t][2]]
                     #print("cluster[s][t]", int(cluster[s][t]))
                     tmp = user_defined_kernel(sx, sx_apostrophe, cx, cx_apostrophe)
+                    ## compute similary matrix W, diagonal matrix D
+                    if i == s and j == t:
+                        pass
+                    else:
+                        W[i][j][s][t] = tmp
+                        D[i][j] += tmp
+                        #L = ??????????????????????????????????
+                    ###############################################
                     #print("middleTerm, tmp:", middleTerm[int(cluster[s][t])], tmp)
                     middleTerm[int(cluster[s][t])] += tmp
                     if cluster[i][j] == cluster[s][t]:
@@ -78,7 +77,7 @@ def distance_on_kernel(img, cluster, cluster_count):
                 if distanceOnKernel[i][j][c] < mini:
                     mini = distanceOnKernel[i][j][c]
                     newCluster[i][j] = c
-    return newCluster
+    return newCluster, W, D
 
 def kernel_kmeans(img, k):
     # initialize centroid
@@ -99,7 +98,7 @@ def kernel_kmeans(img, k):
     centroid = np.array(centroid)
     print("Initial centorid: ", centroid)
 
-    # kernel, compute distance
+    # kernel, compute distance between 10000 pixel and 3 centroid
     K = np.zeros([100, 100])
     for i in range(100):
         for j in range(100):
@@ -116,6 +115,8 @@ def kernel_kmeans(img, k):
                     K[i][j] = tmp
                     cluster[i][j] = cluster[centroid[cen][0]][centroid[cen][1]]
                 #print(K[i][j])
+
+    # count how many points in each cluster
     cluster_count = np.zeros(k)
     for i in range(100):
         for j in range(100):
@@ -126,13 +127,13 @@ def kernel_kmeans(img, k):
     print("cluster_count: ", cluster_count)
 
     # recompute centroid
-    newCluster = distance_on_kernel(img, cluster, cluster_count)
+    newCluster, W, D = distance_on_kernel(img, cluster, cluster_count)
     for i in range(100):
         print("newCluster[%d]" %i)
         for j in range(100):
             print(newCluster[i][j])
 
-    #####
+    # initialize visualization
     X0 = []
     Y0 = []
     X1 = []
@@ -154,7 +155,7 @@ def kernel_kmeans(img, k):
     plt.plot(X1, Y1, 'g.')
     plt.plot(X2, Y2, 'b.')
 
-    #####
+    # 1st iteration visualization
     X0 = []
     Y0 = []
     X1 = []
@@ -177,8 +178,13 @@ def kernel_kmeans(img, k):
     plt.plot(X2, Y2, 'b.')
     plt.show()
     plt.show()
+    return W, D
+
+def spectral_clustering(img, k, W, D):
+    pass
 
 if __name__ == "__main__":
     im = imageio.imread('./image1.png')
-    kernel_kmeans(im, 3)
+    similarityMatrix, diagonalMatrix = kernel_kmeans(im, 3)
+    spectral_clustering(im, 3, similarityMatrix, diagonalMatrix)
     #user_defined_kernel([2,5], [9,9], [2,3,9], [9,2,4])
