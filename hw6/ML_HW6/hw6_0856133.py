@@ -104,14 +104,14 @@ import matplotlib.pyplot as plt
 #         for j in range(100):
 #             sx = [i, j]
 #             cx = [img[i][j][0], img[i][j][1], img[i][j][2]]
-#             K[i][j] = np.Inf
+#             K[i][j] = 0
 #             for cen in range(k):
 #                 sx_apostrophe = centroid[cen]
 #                 cx_apostrophe = [img[centroid[cen][0]][centroid[cen][1]][0], \
 #                                  img[centroid[cen][0]][centroid[cen][1]][1], \
 #                                  img[centroid[cen][0]][centroid[cen][1]][2]]
 #                 tmp = user_defined_kernel(sx, sx_apostrophe, cx, cx_apostrophe)
-#                 if tmp < K[i][j]:
+#                 if tmp > K[i][j]:
 #                     K[i][j] = tmp
 #                     cluster[i][j] = cluster[centroid[cen][0]][centroid[cen][1]]
 #                 #print(K[i][j])
@@ -203,9 +203,67 @@ def compute_gram_matrix(img):
         gramMatrix[offset, offset+s] = tmp
         print("gramMatrix:", gramMatrix)
         imgCopy = np.roll(imgCopy, -1, axis=0)
+        print("imgCopy: ", imgCopy)
     gramMatrix = np.maximum(gramMatrix, gramMatrix.T)
     print("In computer_gram_matrix, gramMatrix= ", gramMatrix)
     return gramMatrix
+
+def compute_kernel_kmeans(gramMatrix, k=3):
+    # initialize centroid
+    print(gramMatrix.shape)
+    centroid2D = []
+    cluster = np.zeros((100, 100))
+    for i in range(100):
+        for j in range(100):
+            cluster[i][j] = -1
+    i = 0
+    while i < k:
+        tmp = np.random.randint(100, size=2)
+        for j in range(i):
+            while tmp[0] == centroid2D[j][0] and tmp[1] == centroid2D[j][1]:
+                tmp = np.random.randint(100, size=2)
+        centroid2D.append(tmp)
+        cluster[tmp[0]][tmp[1]] = i
+        i += 1
+    centroid2D = np.array(centroid2D)
+    print("Initial centroid: ", centroid2D)
+    centroid1D = np.array([])
+    print("centroid1D: ", centroid1D)
+    for [i, j] in centroid2D:
+        centroid1D = np.append(centroid1D, i*100+j)
+    #print("centroid1D: ", centroid1D)
+    centroid1D = centroid1D.astype(int)
+    #print("centroid1D: ", centroid1D)
+
+    # initialized cluster label
+    cluster = np.ravel(cluster)
+    for i in range(10000):
+        print('\n')
+        cen = np.array([])
+        for j in range(k):
+            cen = np.append(cen, gramMatrix[i][centroid1D[j]])
+            print("gramMatrix[%d][%d]: " % (i, centroid1D[j]), gramMatrix[i][centroid1D[j]])
+        print("np.max(cen): ", np.max(cen))
+        print("np.where(np.max(cen)): ", np.where(np.max(cen)))
+        cluster[i] = np.where(cen == np.max(cen))[0][0]
+        print("cen[0][0]: ", cluster[i])
+    cluster = cluster.astype(int)
+    print("cluster0: ", np.sum(cluster == 0))
+    print("cluster1: ", np.sum(cluster == 1))
+
+    # iterate until converge
+    clusterCount = np.array([])
+    for i in range(k):
+        clusterCount = np.append(clusterCount, np.sum(cluster == i))
+    clusterCount = clusterCount.astype(int)
+    print(clusterCount)
+    distanceToCluster = np.zeros(k)
+    indicatorOfCluster = np.array([])
+    for c in range(k):
+        tmp = (cluster == c)
+        indicatorOfCluster = np.append(indicatorOfCluster, tmp)
+    indicatorOfCluster = np.reshape(indicatorOfCluster, (k, 10000))
+    return cluster, indicatorOfCluster
 
 if __name__ == "__main__":
     #similarityMatrix, diagonalMatrix = kernel_kmeans(im, 3)
@@ -217,10 +275,11 @@ if __name__ == "__main__":
     im = np.reshape(im, (10000, 3))
 
     ind = []
-    for i in range(100):
-        for j in range(100):
-            ind.append([i, j])
+    for row in range(100):
+        for col in range(100):
+            ind.append([row, col])
     ind = np.array(ind)
     im = np.append(im, ind, axis=1)
     gramMatrixInMain = compute_gram_matrix(im)
-    print("In main, gramMatrix= ", gramMatrixInMain)
+    print("In main, gramMatrixInMain= ", gramMatrixInMain)
+    a, b = compute_kernel_kmeans(gramMatrixInMain)
