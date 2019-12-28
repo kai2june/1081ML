@@ -210,7 +210,7 @@ def compute_gram_matrix(img):
     #print("In computer_gram_matrix, gramMatrix= ", gramMatrix)
     return gramMatrix
 
-def compute_kernel_kmeans(gramMatrix, k=3):
+def compute_kernel_kmeans(gramMatrix, k=2, init=1):
     print("computing kernel kmeans...")
     ## initialize centroid
     #print(gramMatrix.shape)
@@ -220,15 +220,38 @@ def compute_kernel_kmeans(gramMatrix, k=3):
     for i in range(100):
         for j in range(100):
             cluster[i][j] = -1
-    i = 0
-    while i < k:
-        tmp = np.random.randint(100, size=2)
-        for j in range(i):
-            while tmp[0] == centroid2D[j][0] and tmp[1] == centroid2D[j][1]:
+
+    ### pick centroid, original vs. kmeans++
+    if init == 0:
+        i = 0
+        while i < k:
+            tmp = np.random.randint(100, size=2)
+            for j in range(i):
+                while tmp[0] == centroid2D[j][0] and tmp[1] == centroid2D[j][1]:
+                    tmp = np.random.randint(100, size=2)
+            centroid2D.append(tmp)
+            cluster[tmp[0]][tmp[1]] = i
+            i += 1
+    elif init == 1:
+        i = 0
+        firstCentroid = 0
+        while i < k:
+            if i == 0:
                 tmp = np.random.randint(100, size=2)
-        centroid2D.append(tmp)
-        cluster[tmp[0]][tmp[1]] = i
-        i += 1
+                centroid2D.append(tmp)
+                cluster[tmp[0]][tmp[1]] = i
+                firstCentroid = tmp[0]*100 + tmp[1]
+            else:
+                D = np.copy(gramMatrix[:, firstCentroid])
+                D = D**2
+                total = np.sum(D)
+                P = D / total
+                cumulativeP = np.cumsum(P)
+                roulette = np.random.rand()
+                newCentroid = np.searchsorted(cumulativeP, roulette)
+                centroid2D.append(np.array([(newCentroid/100).astype(int), newCentroid % 100]))
+            i += 1
+    ##########################################
     centroid2D = np.array(centroid2D)
     print("Initial centroid: ", centroid2D)
     centroid1D = np.array([])
@@ -323,8 +346,8 @@ def scatter_plot(allCluster):
                         y = np.append(y, i)
             plt.title("kernel kmeans, Iter %d" % itr)
             plt.plot(x, y, colorMap[c])
-            figName = "./picture/k%d/kernelKMeansItr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
-            plt.savefig(figName)
+            figName = "./picture/k%d++/kernelKMeans++Itr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
+            #plt.savefig(figName)
         plt.show()
 
 if __name__ == "__main__":
@@ -344,8 +367,13 @@ if __name__ == "__main__":
     im = np.append(im, ind, axis=1)
     gramMatrixInMain = compute_gram_matrix(im)
     print("In main, gramMatrixInMain= ", gramMatrixInMain)
+
+    ## kernel kmeans
     allC = compute_kernel_kmeans(gramMatrixInMain)
-    print("Done!!")
+    print("kernel kmeans done!!")
+    ## spectral clustering
+
+
     # pl = np.zeros(10000)
     # for s in range(3000, 3500):
     #     pl[s] = 1
