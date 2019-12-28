@@ -182,36 +182,38 @@ import pandas as pd
 #     return W, D
 
 def compute_kernel(sub, gammaC=1/100000, gammaS=1/100000):
-    print("sub: ", sub)
+    #print("sub: ", sub)
     C = sub[:, :3]
     S = sub[:, 3:]
-    print("C: ", C)
+    #print("C: ", C)
     #print("C**2: ", C**2)
     #print("np.sum(C**2, axis=1): ", np.sum(C**2, axis=1))
-    print("S: ", S)
+    #print("S: ", S)
     return np.exp(-gammaC*np.sum(C**2, axis=1)) * np.exp(-gammaS*np.sum(S**2, axis=1))
 
 def compute_gram_matrix(img):
-    print("img.shape: ", img.shape)
+    print("computing gram matrix...")
+    #print("img.shape: ", img.shape)
     imgCopy = np.copy(img)
     gramMatrix = np.zeros((10000, 10000))
     for s in range(10000):
-        print("s: ", s)
+        #print("s: ", s)
         sub = np.subtract(img, imgCopy)
         offset = np.arange(10000-s)
         tmp = compute_kernel(sub)
         tmp = tmp[:10000-s]
         gramMatrix[offset, offset+s] = tmp
-        print("gramMatrix:", gramMatrix)
+        #print("gramMatrix:", gramMatrix)
         imgCopy = np.roll(imgCopy, -1, axis=0)
-        print("imgCopy: ", imgCopy)
+        #print("imgCopy: ", imgCopy)
     gramMatrix = np.maximum(gramMatrix, gramMatrix.T)
-    print("In computer_gram_matrix, gramMatrix= ", gramMatrix)
+    #print("In computer_gram_matrix, gramMatrix= ", gramMatrix)
     return gramMatrix
 
 def compute_kernel_kmeans(gramMatrix, k=3):
+    print("computing kernel kmeans...")
     ## initialize centroid
-    print(gramMatrix.shape)
+    #print(gramMatrix.shape)
     centroid2D = []
     cluster = np.zeros((100, 100))
     allCluster = []
@@ -230,74 +232,88 @@ def compute_kernel_kmeans(gramMatrix, k=3):
     centroid2D = np.array(centroid2D)
     print("Initial centroid: ", centroid2D)
     centroid1D = np.array([])
-    print("centroid1D: ", centroid1D)
+    #print("centroid1D: ", centroid1D)
     for [i, j] in centroid2D:
         centroid1D = np.append(centroid1D, i*100+j)
     #print("centroid1D: ", centroid1D)
     centroid1D = centroid1D.astype(int)
-    #print("centroid1D: ", centroid1D)
+    print("centroid1D: ", centroid1D)
 
     ## initialize cluster label
     cluster = np.ravel(cluster)
     for i in range(10000):
-        print('\n')
+        #print('\n')
         cen = np.array([])
         for j in range(k):
             cen = np.append(cen, gramMatrix[i][centroid1D[j]])
-            print("gramMatrix[%d][%d]: " % (i, centroid1D[j]), gramMatrix[i][centroid1D[j]])
-        print("np.max(cen): ", np.max(cen))
-        print("np.where(np.max(cen)): ", np.where(np.max(cen)))
+            #print("gramMatrix[%d][%d]: " % (i, centroid1D[j]), gramMatrix[i][centroid1D[j]])
+        #print("np.max(cen): ", np.max(cen))
+        #print("np.where(np.max(cen)): ", np.where(np.max(cen)))
         cluster[i] = np.where(cen == np.max(cen))[0][0]
-        print("cen[0][0]: ", cluster[i])
+        #print("cen[0][0]: ", cluster[i])
     cluster = cluster.astype(int)
-    print("cluster0: ", np.sum(cluster == 0))
-    print("cluster1: ", np.sum(cluster == 1))
+    print("Initial:")
+    for i in range(k):
+        print("clusterCount[%d]: " % i, np.sum(cluster == i))
     allCluster.append(cluster)
 
-    ## iterate until converge, no need to compute left term (Prof. Chiu, unsupervised.pdf p.22)
-    clusterCount = np.array([])
-    for i in range(k):
-        clusterCount = np.append(clusterCount, np.sum(cluster == i))
-    clusterCount = clusterCount.astype(int)
-    print(clusterCount)
-
-    ### compute right term
-    rightTerm = np.zeros(k)
-    pixelToCluster = np.zeros(10000)
+    ## iterate until converge, no need to compute left term(=1 for all pixels)
+    ## (Prof. Chiu, unsupervised.pdf p.22)
     newCluster = np.zeros(10000)
-    for i in range(len(pixelToCluster)):
-        pixelToCluster[i] = np.Inf
-    for c in range(k):
-        tmp = (cluster == c)
-        tmpRight = np.copy(gramMatrix[tmp == 1, :])
-        tmpRight = tmpRight[:, tmp == 1]
-        tmpRight = np.sum(tmpRight) / clusterCount[c] / clusterCount[c]
-        rightTerm[c] = tmpRight
+    #newCluster[0] = -1  ###### in case newCluster equals cluster in 1st iteration
+    firstIteration = True
+    itr = 0
+    while np.any(newCluster != cluster):
+        itr += 1
+        print("itr %d:" % itr)
+        if firstIteration:
+            firstIteration = False
+        else:
+            cluster = np.copy(newCluster)
+            allCluster.append(cluster)
+        clusterCount = np.array([])
+        for i in range(k):
+            clusterCount = np.append(clusterCount, np.sum(cluster == i))
+        clusterCount = clusterCount.astype(int)
+        print("clusterCount[%d] :" % (itr-1), clusterCount)
 
-        ### compute middle term
-        middleTerm = 0
-        for i in range(10000):
-            print("gramMatrix[%d]: " % i, gramMatrix[i])
-            tmpMiddle = gramMatrix[i] @ tmp
-            print("tmpMiddle[%d]: " % i, tmpMiddle)
-            tmpMiddle = -tmpMiddle * 2 / clusterCount[c]
-            middleTerm = tmpMiddle
-            if 1 + middleTerm + rightTerm[c] < pixelToCluster[i]:
-                pixelToCluster[i] = 1 + middleTerm + rightTerm[c]
-                print("pixelToCluster[%d]: " % i, pixelToCluster[i])
-                newCluster[i] = c
-    allCluster.append(newCluster)
+        ### compute right term
+        rightTerm = np.zeros(k)
+        pixelToCluster = np.zeros(10000)
+        for i in range(len(pixelToCluster)):
+            pixelToCluster[i] = np.Inf
+        for c in range(k):
+            tmp = (cluster == c)
+            tmpRight = np.copy(gramMatrix[tmp == 1, :])
+            tmpRight = tmpRight[:, tmp == 1]
+            tmpRight = np.sum(tmpRight) / clusterCount[c] / clusterCount[c]
+            rightTerm[c] = tmpRight
+
+            ### compute middle term
+            middleTerm = 0
+            for i in range(10000):
+                #print("gramMatrix[%d]: " % i, gramMatrix[i])
+                tmpMiddle = gramMatrix[i] @ tmp
+                #print("tmpMiddle[%d]: " % i, tmpMiddle)
+                tmpMiddle = -tmpMiddle * 2 / clusterCount[c]
+                middleTerm = tmpMiddle
+                if 1 + middleTerm + rightTerm[c] < pixelToCluster[i]:
+                    pixelToCluster[i] = 1 + middleTerm + rightTerm[c]
+                    #print("pixelToCluster[%d]: " % i, pixelToCluster[i])
+                    newCluster[i] = c
+        # allCluster.append(newCluster)
 
     allCluster = np.asarray(allCluster)
     scatter_plot(allCluster)
-    return cluster, newCluster, allCluster
+    return allCluster
 
 def scatter_plot(allCluster):
+    print("plotting...")
     allCluster = np.reshape(allCluster, (-1, 100, 100))  ###### Alert: call by value? call by address?
     colorMap = ['r.', 'g.', 'b.', 'y.', 'c.', 'm.', 'k.', 'w.']
 
     for itr in range(len(allCluster)):
-        for c in range(len(np.unique(allCluster[itr]))):
+        for c in range(len(np.unique(allCluster[0]))):
             x = np.array([])
             y = np.array([])
             for i in range(99, -1, -1):
@@ -305,7 +321,10 @@ def scatter_plot(allCluster):
                     if allCluster[itr][i][j] == c:
                         x = np.append(x, j)
                         y = np.append(y, i)
+            plt.title("kernel kmeans, Iter %d" % itr)
             plt.plot(x, y, colorMap[c])
+            figName = "./picture/k%d/kernelKMeansItr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
+            plt.savefig(figName)
         plt.show()
 
 if __name__ == "__main__":
@@ -325,8 +344,8 @@ if __name__ == "__main__":
     im = np.append(im, ind, axis=1)
     gramMatrixInMain = compute_gram_matrix(im)
     print("In main, gramMatrixInMain= ", gramMatrixInMain)
-    aaa, bbb, allC = compute_kernel_kmeans(gramMatrixInMain)
-
+    allC = compute_kernel_kmeans(gramMatrixInMain)
+    print("Done!!")
     # pl = np.zeros(10000)
     # for s in range(3000, 3500):
     #     pl[s] = 1
