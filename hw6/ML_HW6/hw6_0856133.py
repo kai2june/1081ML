@@ -1,7 +1,8 @@
 import imageio
 import numpy as np
-import pandas as pd
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # def user_defined_kernel(sx, sx_apostrophe, cx, cx_apostrophe, gamma_s=1/100000, gamma_c=1/100000):
 #     sx = np.asarray(sx)
@@ -213,6 +214,7 @@ def compute_kernel_kmeans(gramMatrix, k=3):
     print(gramMatrix.shape)
     centroid2D = []
     cluster = np.zeros((100, 100))
+    allCluster = []
     for i in range(100):
         for j in range(100):
             cluster[i][j] = -1
@@ -250,6 +252,7 @@ def compute_kernel_kmeans(gramMatrix, k=3):
     cluster = cluster.astype(int)
     print("cluster0: ", np.sum(cluster == 0))
     print("cluster1: ", np.sum(cluster == 1))
+    allCluster.append(cluster)
 
     ## iterate until converge, no need to compute left term (Prof. Chiu, unsupervised.pdf p.22)
     clusterCount = np.array([])
@@ -271,7 +274,7 @@ def compute_kernel_kmeans(gramMatrix, k=3):
         tmpRight = np.sum(tmpRight) / clusterCount[c] / clusterCount[c]
         rightTerm[c] = tmpRight
 
-        ### compute middle
+        ### compute middle term
         middleTerm = 0
         for i in range(10000):
             print("gramMatrix[%d]: " % i, gramMatrix[i])
@@ -283,8 +286,27 @@ def compute_kernel_kmeans(gramMatrix, k=3):
                 pixelToCluster[i] = 1 + middleTerm + rightTerm[c]
                 print("pixelToCluster[%d]: " % i, pixelToCluster[i])
                 newCluster[i] = c
+    allCluster.append(newCluster)
 
-    return cluster, newCluster
+    allCluster = np.asarray(allCluster)
+    scatter_plot(allCluster)
+    return cluster, newCluster, allCluster
+
+def scatter_plot(allCluster):
+    allCluster = np.reshape(allCluster, (-1, 100, 100))  ###### Alert: call by value? call by address?
+    colorMap = ['r.', 'g.', 'b.', 'y.', 'c.', 'm.', 'k.', 'w.']
+
+    for itr in range(len(allCluster)):
+        for c in range(len(np.unique(allCluster[itr]))):
+            x = np.array([])
+            y = np.array([])
+            for i in range(99, -1, -1):
+                for j in range(100):
+                    if allCluster[itr][i][j] == c:
+                        x = np.append(x, j)
+                        y = np.append(y, i)
+            plt.plot(x, y, colorMap[c])
+        plt.show()
 
 if __name__ == "__main__":
     #similarityMatrix, diagonalMatrix = kernel_kmeans(im, 3)
@@ -303,4 +325,17 @@ if __name__ == "__main__":
     im = np.append(im, ind, axis=1)
     gramMatrixInMain = compute_gram_matrix(im)
     print("In main, gramMatrixInMain= ", gramMatrixInMain)
-    aaa, bbb = compute_kernel_kmeans(gramMatrixInMain)
+    aaa, bbb, allC = compute_kernel_kmeans(gramMatrixInMain)
+
+    # pl = np.zeros(10000)
+    # for s in range(3000, 3500):
+    #     pl[s] = 1
+    # for s in range(4000, 4500):
+    #     pl[s] = 2
+    # for s in range(5000, 5500):
+    #     pl[s] = 3
+    # for s in range(6000, 6500):
+    #     pl[s] = 4
+    # for s in range(7000, 7500):
+    #     pl[s] = 5
+    # scatter_plot(pl)
