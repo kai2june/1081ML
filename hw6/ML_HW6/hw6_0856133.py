@@ -242,7 +242,13 @@ def compute_kernel_kmeans(gramMatrix, k=2, init=1):
                 cluster[tmp[0]][tmp[1]] = i
                 firstCentroid = tmp[0]*100 + tmp[1]
             else:
-                D = np.copy(gramMatrix[:, firstCentroid])
+                tmpCentroid1D = np.array([])
+                for m in range(len(centroid2D)):
+                    tmpCentroid1D = \
+                        np.append(tmpCentroid1D, centroid2D[m][0]*100 + centroid2D[m][1])
+                    tmpCentroid1D = tmpCentroid1D.astype(int)
+                D = np.copy(gramMatrix[:, tmpCentroid1D])
+                D = np.min(D, axis=1)
                 D = D**2
                 total = np.sum(D)
                 P = D / total
@@ -344,10 +350,10 @@ def scatter_plot(allCluster):
                     if allCluster[itr][i][j] == c:
                         x = np.append(x, j)
                         y = np.append(y, i)
-            plt.title("kernel kmeans, Iter %d" % itr)
+            plt.title("kernel kmeans++, Iter %d" % itr)
             plt.plot(x, y, colorMap[c])
             figName = "./picture/k%d++/kernelKMeans++Itr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
-            #plt.savefig(figName)
+            plt.savefig(figName)
         plt.show()
 
 if __name__ == "__main__":
