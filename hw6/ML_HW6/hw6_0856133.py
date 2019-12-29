@@ -363,7 +363,7 @@ def scatter_plot(allCluster, method=0):
                 plt.savefig(figName)
         #plt.show()
 
-def spectral_clustering(gramMatrixFromMain, k=3, init=0, cut=0):
+def spectral_clustering(gramMatrixFromMain, k=3, init=0, cut=1):
     print("computing spectral clustering...")
     ## generate L = D - W
     W = np.copy(gramMatrixFromMain)
@@ -381,6 +381,10 @@ def spectral_clustering(gramMatrixFromMain, k=3, init=0, cut=0):
     ## compute eigenvalue eigenvector
     eigenvalue, eigenvector = np.linalg.eigh(L)
     U = np.copy(eigenvector[: , :k])
+    if cut == 1:
+        euclideanNorm = np.linalg.norm(U, axis=1)
+        for i in range(len(U)):
+            U[i] = U[i]/euclideanNorm[i]
 
     ## kmeans
     print("computing kmeans...")
