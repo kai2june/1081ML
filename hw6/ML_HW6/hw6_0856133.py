@@ -1,8 +1,7 @@
 import imageio
 import numpy as np
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-import pandas as pd
+import scipy.spatial.distance
 
 # def user_defined_kernel(sx, sx_apostrophe, cx, cx_apostrophe, gamma_s=1/100000, gamma_c=1/100000):
 #     sx = np.asarray(sx)
@@ -279,6 +278,7 @@ def compute_kernel_kmeans(gramMatrix, k=2, init=1):
         #print("np.max(cen): ", np.max(cen))
         #print("np.where(np.max(cen)): ", np.where(np.max(cen)))
         cluster[i] = np.where(cen == np.max(cen))[0][0]
+        print("cluster[%d]: " % i, cluster[i])
         #print("cen[0][0]: ", cluster[i])
     cluster = cluster.astype(int)
     print("Initial:")
@@ -334,9 +334,10 @@ def compute_kernel_kmeans(gramMatrix, k=2, init=1):
 
     allCluster = np.asarray(allCluster)
     scatter_plot(allCluster)
+    print("kernel kmeans done!!")
     return allCluster
 
-def scatter_plot(allCluster):
+def scatter_plot(allCluster, method=0):
     print("plotting...")
     allCluster = np.reshape(allCluster, (-1, 100, 100))  ###### Alert: call by value? call by address?
     colorMap = ['r.', 'g.', 'b.', 'y.', 'c.', 'm.', 'k.', 'w.']
@@ -350,11 +351,159 @@ def scatter_plot(allCluster):
                     if allCluster[itr][i][j] == c:
                         x = np.append(x, j)
                         y = np.append(y, i)
-            plt.title("kernel kmeans++, Iter %d" % itr)
-            plt.plot(x, y, colorMap[c])
-            figName = "./picture/k%d++/kernelKMeans++Itr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
-            plt.savefig(figName)
-        plt.show()
+            if method == 0:
+                plt.title("kernel kmeans++, Iter %d" % itr)
+                plt.plot(x, y, colorMap[c])
+                figName = "./picture/k%d++/kernelKMeans++Itr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
+                #plt.savefig(figName)
+            elif method == 1:
+                plt.title("spectral clustering, Iter %d" % itr)
+                plt.plot(x, y, colorMap[c])
+                figName = "./picture/k%dspectral/spectralClusteringItr%dk%d" % (len(np.unique(allCluster[0])), itr, len(np.unique(allCluster[0])))
+                plt.savefig(figName)
+        #plt.show()
+
+def spectral_clustering(gramMatrixFromMain, k=3, init=0, cut=0):
+    print("computing spectral clustering...")
+    ## generate L = D - W
+    W = np.copy(gramMatrixFromMain)
+    rowSum = np.sum(W, axis=1)
+    rowSum -= 1
+    D = np.zeros((10000, 10000))
+    np.fill_diagonal(D, rowSum)
+    L = np.array([])
+    if cut == 0:
+        L = np.subtract(D, W)
+    elif cut == 1:
+        sqrtD = np.sqrt(D)
+        L = sqrtD @ np.subtract(D, W) @ np.linalg.inv(sqrtD)
+
+    ## compute eigenvalue eigenvector
+    eigenvalue, eigenvector = np.linalg.eigh(L)
+    U = np.copy(eigenvector[: , :k])
+
+    ## kmeans
+    print("computing kmeans...")
+    distanceEigen1D = scipy.spatial.distance.pdist(U, metric='euclidean')
+    print("kmeans distanceEigen1D: ", distanceEigen1D)
+    gramMatrix = np.zeros((10000, 10000))
+    ind = np.triu_indices(10000, k=1)
+    gramMatrix[ind] = distanceEigen1D
+    gramMatrix = np.add(gramMatrix, gramMatrix.T)
+    print("kmeans distanceEigen2D: ", gramMatrix)
+
+    ### initialize centroid
+    centroid2D = []
+    cluster = np.zeros((100, 100))
+    allCluster = []
+    for i in range(100):
+        for j in range(100):
+            cluster[i][j] = -1
+
+    #### pick centroid, original vs. kmeans++
+    if init == 0:
+        i = 0
+        while i < k:
+            tmp = np.random.randint(100, size=2)
+            for j in range(i):
+                while tmp[0] == centroid2D[j][0] and tmp[1] == centroid2D[j][1]:
+                    tmp = np.random.randint(100, size=2)
+            centroid2D.append(tmp)
+            cluster[tmp[0]][tmp[1]] = i
+            i += 1
+    elif init == 1:
+        i = 0
+        firstCentroid = 0
+        while i < k:
+            if i == 0:
+                tmp = np.random.randint(100, size=2)
+                centroid2D.append(tmp)
+                cluster[tmp[0]][tmp[1]] = i
+                firstCentroid = tmp[0] * 100 + tmp[1]
+            else:
+                tmpCentroid1D = np.array([])
+                for m in range(len(centroid2D)):
+                    tmpCentroid1D = \
+                        np.append(tmpCentroid1D, centroid2D[m][0] * 100 + centroid2D[m][1])
+                    tmpCentroid1D = tmpCentroid1D.astype(int)
+                D = np.copy(gramMatrix[:, tmpCentroid1D])
+                D = np.min(D, axis=1)
+                D = D ** 2
+                total = np.sum(D)
+                P = D / total
+                cumulativeP = np.cumsum(P)
+                roulette = np.random.rand()
+                newCentroid = np.searchsorted(cumulativeP, roulette)
+                centroid2D.append(np.array([(newCentroid / 100).astype(int), newCentroid % 100]))
+            i += 1
+    ##########################################
+    centroid2D = np.array(centroid2D)
+    print("Initial centroid: ", centroid2D)
+    centroid1D = np.array([])
+    # print("centroid1D: ", centroid1D)
+    for [i, j] in centroid2D:
+        centroid1D = np.append(centroid1D, i * 100 + j)
+    # print("centroid1D: ", centroid1D)
+    centroid1D = centroid1D.astype(int)
+    print("centroid1D: ", centroid1D)
+
+    ### initialize cluster label
+    cluster = np.ravel(cluster)
+    for i in range(10000):
+        # print('\n')
+        cen = np.array([])
+        for j in range(k):
+            cen = np.append(cen, gramMatrix[i][centroid1D[j]])
+            #print("gramMatrix[%d][%d]: " % (i, centroid1D[j]), gramMatrix[i][centroid1D[j]])
+        #print("np.where(cen == np.min(cen))[0][0]: ", np.where(cen == np.min(cen))[0][0])
+        #print("np.where(cen == np.max(cen))[0][0]: ", np.where(cen == np.max(cen))[0][0])
+        cluster[i] = np.where(cen == np.min(cen))[0][0]  ###################################
+        # print("cen[0][0]: ", cluster[i])
+    cluster = cluster.astype(int)
+    print("Initial:")
+    for i in range(k):
+        print("clusterCount[%d]: " % i, np.sum(cluster == i))
+    allCluster.append(cluster)
+
+    ## iterate until converge, no need to compute left term(=1 for all pixels)
+    ## (Prof. Chiu, unsupervised.pdf p.22)
+    newCluster = np.zeros(10000)
+    #newCluster[0] = -1  ###### in case newCluster equals cluster in 1st iteration
+    firstIteration = True
+    itr = 0
+    while np.any(newCluster != cluster):
+        itr += 1
+        print("itr %d:" % itr)
+        if firstIteration:
+            firstIteration = False
+        else:
+            cluster = np.copy(newCluster)
+            allCluster.append(cluster)
+        clusterCount = np.array([])
+        for i in range(k):
+            clusterCount = np.append(clusterCount, np.sum(cluster == i))
+        clusterCount = clusterCount.astype(int)
+        print("clusterCount[%d] :" % (itr-1), clusterCount)
+
+        ## compute new centroid
+        newCentroid = np.array([])
+        for c in range(k):
+            tmp = (cluster == c)
+            tmpCluster = np.copy(U[tmp == c, :])
+            if len(tmpCluster) != 0:
+                tmpCentroid = np.sum(tmpCluster, axis=0) / len(tmpCluster)
+            newCentroid = np.append(newCentroid, tmpCentroid)
+        newCentroid = np.reshape(newCentroid, (k, k))
+
+        distanceToCentroid = scipy.spatial.distance.cdist(U, newCentroid, metric='euclidean')
+        print("kmeans distanceEigen1D: ", distanceToCentroid)
+        for g in range(len(distanceToCentroid)):
+            newCluster[g] = np.where(distanceToCentroid[g] == np.min(distanceToCentroid[g]))[0][0]
+
+    allCluster = np.asarray(allCluster)
+    scatter_plot(allCluster)
+    print("Spectral clustering Done!!")
+    return eigenvalue, eigenvector, allCluster, distanceEigen1D, gramMatrix
 
 if __name__ == "__main__":
     #similarityMatrix, diagonalMatrix = kernel_kmeans(im, 3)
@@ -375,10 +524,16 @@ if __name__ == "__main__":
     print("In main, gramMatrixInMain= ", gramMatrixInMain)
 
     ## kernel kmeans
-    allC = compute_kernel_kmeans(gramMatrixInMain)
-    print("kernel kmeans done!!")
-    ## spectral clustering
+    #kernelKMeansAllC = compute_kernel_kmeans(gramMatrixInMain)
 
+    ## spectral clustering
+    ei, ev, spectralAllC, dist1D, dist2D = spectral_clustering(gramMatrixInMain)
+    plt.plot(ev[:, 0], ev[:, 1], 'g.')
+    plt.show()
+    # fig = plt.figure()
+    # ax = fig.gca(projection='3d')
+    # ax.plot(ev[:, 0], ev[:, 1], ev[:, 2])
+    # plt.show()
 
     # pl = np.zeros(10000)
     # for s in range(3000, 3500):
